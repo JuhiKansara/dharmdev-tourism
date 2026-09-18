@@ -7,7 +7,11 @@ import com.dharmdev.tourism_backend.entity.EstimateLineItem;
 import com.dharmdev.tourism_backend.repository.CustomerRepository;
 import com.dharmdev.tourism_backend.repository.EstimateRepository;
 import com.dharmdev.tourism_backend.service.GstCalculationService;
+import com.dharmdev.tourism_backend.service.PdfGenerationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,12 +25,26 @@ public class EstimateController {
     private final EstimateRepository estimateRepository;
     private final CustomerRepository customerRepository;
     private final GstCalculationService gstCalculationService;
+    private final PdfGenerationService pdfGenerationService;
 
     @GetMapping("/{id}")
     public GstCalculationService.EstimateCalculation getEstimate(@PathVariable Long id) {
         Estimate estimate = estimateRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Estimate not found: " + id));
         return gstCalculationService.calculate(estimate);
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> getEstimatePdf(@PathVariable Long id) throws Exception {
+        Estimate estimate = estimateRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Estimate not found: " + id));
+        var calculation = gstCalculationService.calculate(estimate);
+        byte[] pdfBytes = pdfGenerationService.generateEstimatePdf(calculation);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=estimate-" + id + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
     }
 
     @PostMapping
