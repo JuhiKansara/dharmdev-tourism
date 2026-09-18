@@ -6,16 +6,16 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.*;
 
 @Service
 public class GstCalculationService {
 
-    private static final String BUSINESS_STATE_CODE = "24"; // Gujarat — Dharmdev Tourism
+    private static final String BUSINESS_STATE_CODE = "24";
 
     public enum TaxType { INTRA_STATE, INTER_STATE }
 
-    /** Computed result for a single line item — never persisted, always derived. */
     public record LineItemCalculation(
             EstimateLineItem lineItem,
             BigDecimal taxableAmount,
@@ -27,8 +27,17 @@ public class GstCalculationService {
             BigDecimal lineAmount
     ) {}
 
-    /** Computed result for the whole estimate. */
+    // Added: estimateId, estimateNo, estimateDate, customerName,
+    // placeOfSupplyStateCode, description, termsAndConditions —
+    // everything the PDF-matching view needs, in one response.
     public record EstimateCalculation(
+            Long estimateId,
+            Integer estimateNo,
+            LocalDate estimateDate,
+            String customerName,
+            String placeOfSupplyStateCode,
+            String description,
+            String termsAndConditions,
             List<LineItemCalculation> lineItems,
             BigDecimal subTotal,
             BigDecimal totalTax,
@@ -37,7 +46,6 @@ public class GstCalculationService {
             List<TaxSummaryRow> taxSummary
     ) {}
 
-    /** One row of the grouped HSN/SAC + rate tax summary table. */
     public record TaxSummaryRow(
             String hsnSac,
             BigDecimal gstRate,
@@ -63,6 +71,13 @@ public class GstCalculationService {
         List<TaxSummaryRow> taxSummary = buildTaxSummary(calculations);
 
         return new EstimateCalculation(
+                estimate.getId(),
+                estimate.getEstimateNo(),
+                estimate.getEstimateDate(),
+                estimate.getCustomer().getName(),
+                estimate.getPlaceOfSupplyStateCode(),
+                estimate.getDescription(),
+                estimate.getTermsAndConditions(),
                 calculations,
                 subTotal,
                 totalTax,
@@ -89,7 +104,7 @@ public class GstCalculationService {
             BigDecimal halfRate = li.getGstRate().divide(BigDecimal.valueOf(2));
             cgstAmt = taxableAmount.multiply(halfRate)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            sgstAmt = cgstAmt; // symmetric by definition
+            sgstAmt = cgstAmt;
         } else {
             igstAmt = taxableAmount.multiply(li.getGstRate())
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -102,7 +117,6 @@ public class GstCalculationService {
     }
 
     private List<TaxSummaryRow> buildTaxSummary(List<LineItemCalculation> calculations) {
-        // Group by (hsnSac, gstRate)
         Map<String, List<LineItemCalculation>> grouped = new LinkedHashMap<>();
         for (LineItemCalculation calc : calculations) {
             String key = calc.lineItem().getHsnSac() + "|" + calc.lineItem().getGstRate();
