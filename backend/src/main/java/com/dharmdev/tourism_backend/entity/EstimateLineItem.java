@@ -1,5 +1,6 @@
 package com.dharmdev.tourism_backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,6 +21,7 @@ public class EstimateLineItem {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estimate_id", nullable = false)
+    @JsonIgnore
     private Estimate estimate;
 
     /**
